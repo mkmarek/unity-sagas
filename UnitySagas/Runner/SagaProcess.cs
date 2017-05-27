@@ -8,7 +8,6 @@
 
     public class SagaProcess
     {
-        public Saga Saga;
         private IEnumerator processEnumerator;
         private List<SagaProcess> processesToKill;
         private List<SagaProcess> runningProcesses;
@@ -38,6 +37,7 @@
 
         public bool IsSynchronous { get; private set; }
         public string Name { get; private set; }
+        public Saga Saga { get; private set; }
 
         public void EnqueueSubProcess(SagaProcess process)
         {
