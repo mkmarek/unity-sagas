@@ -4,11 +4,11 @@
     using Data;
     using Runner;
 
-    public class PutEffect<TData> : IEffect
+    public class PutEffect : IEffect
     {
-        private SagaAction<TData> data;
+        private SagaAction data;
 
-        public PutEffect(SagaAction<TData> data)
+        public PutEffect(SagaAction data)
         {
             this.data = data;
         }

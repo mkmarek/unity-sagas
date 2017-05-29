@@ -115,7 +115,7 @@
 
             yield return Do.Call(target, data);
 
-            yield return Do.Put<int>(new SagaAction<int>("success", data.Value));
+            yield return Do.Put(new SagaAction<int>("success", data.Value));
         }
 
         private IEnumerator FinallyStuff()

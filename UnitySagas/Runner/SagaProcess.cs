@@ -9,9 +9,9 @@
     public class SagaProcess
     {
         private IEnumerator processEnumerator;
-        private List<SagaProcess> processesToKill;
         private List<SagaProcess> runningProcesses;
         private Queue<SagaProcess> subProcesses;
+        private IEnumerator<SagaProcess> processQueue;
 
         public SagaProcess(string name, Saga saga, IEnumerator enumerator, bool isSynchronous)
         {
@@ -19,10 +19,10 @@
             this.Saga = saga;
             this.subProcesses = new Queue<SagaProcess>();
             this.runningProcesses = new List<SagaProcess>();
-            this.processesToKill = new List<SagaProcess>();
             this.IsSynchronous = isSynchronous;
             this.HasEnumeratorFinished = false;
             this.processEnumerator = Utils.Flatten(enumerator);
+            this.processQueue = this.CreateProcessQueue();
         }
 
         public bool HasEnumeratorFinished { get; protected set; }
@@ -41,15 +41,31 @@
 
         public void EnqueueSubProcess(SagaProcess process)
         {
-            this.subProcesses.Enqueue(process);
+            if (this.runningProcesses.Count == 0)
+            {
+                this.runningProcesses.Add(process);
+            }
+            else if (this.runningProcesses[0].IsSynchronous)
+            {
+                this.subProcesses.Enqueue(process);
+            }
+            else
+            {
+                this.runningProcesses.Add(process);
+            }
         }
 
         public virtual ActionInfo MoveNext()
         {
-            KillFinishedProcesses();
-
             StartPendingProcesses();
 
+            var action = GetActionInfoFromCurrentIteration();
+
+            return action;
+        }
+
+        private ActionInfo GetActionInfoFromCurrentIteration()
+        {
             var actionInfo = this.InvokeRunningProcesses();
             if (actionInfo != null) return actionInfo;
 
@@ -111,27 +127,48 @@
 
         private ActionInfo InvokeRunningProcesses()
         {
-            foreach (var subProcess in this.runningProcesses)
+            if (this.runningProcesses.Count == 0)
             {
-                var value = subProcess.MoveNext();
+                return null;
+            }
 
-                if (subProcess.HasFinished)
-                {
-                    this.processesToKill.Add(subProcess);
-                }
+            if (this.runningProcesses[0].IsSynchronous)
+            {
+                return RunFirstSynchronousProcess();
+            }
 
-                return value;
+            this.processQueue.MoveNext();
+            if (this.processQueue.Current != this)
+            {
+                return RunAsynchronousSubProcess();
             }
 
             return null;
         }
 
-        private void KillFinishedProcesses()
+        private ActionInfo RunFirstSynchronousProcess()
         {
-            foreach (var process in this.processesToKill)
+            var subProcess = this.runningProcesses[0];
+            var value = subProcess.MoveNext();
+
+            if (subProcess.HasFinished)
             {
-                this.runningProcesses.Remove(process);
+                this.runningProcesses.Remove(subProcess);
             }
+
+            return value;
+        }
+
+        private ActionInfo RunAsynchronousSubProcess()
+        {
+            var value = this.processQueue.Current.MoveNext();
+
+            if (this.processQueue.Current.HasFinished)
+            {
+                this.runningProcesses.Remove(this.processQueue.Current);
+            }
+
+            return value;
         }
 
         private ActionInfo ResolveEffect(IEffect effect)
@@ -149,8 +186,62 @@
                     process = this.subProcesses.Dequeue();
 
                     this.runningProcesses.Add(process);
-                } while (!process.IsSynchronous);
+                } while (!process.IsSynchronous && this.subProcesses.Count > 0);
             }
+        }
+
+        private IEnumerator<SagaProcess> CreateProcessQueue()
+        {
+            int index = 0;
+            int previousProcessCount = 0;
+            var previousEnumeratorStatus = this.HasEnumeratorFinished;
+
+            while (!this.HasEnumeratorFinished || this.runningProcesses.Count > 0)
+            {
+                if (WasProcessRemoved(previousProcessCount, previousEnumeratorStatus))
+                {
+                    index = this.ModifyIndexOnProcessRemoval(index);
+                }
+
+                previousEnumeratorStatus = this.HasEnumeratorFinished;
+                previousProcessCount = this.runningProcesses.Count;
+
+
+                if (index == 0 && !this.HasEnumeratorFinished)
+                {
+                    yield return this;
+                }
+                else
+                {
+                    yield return this.runningProcesses[index - (this.HasEnumeratorFinished ? 0 : 1)];
+                }
+
+                index++;
+                index %= GetTotalProcessCountIncludingCurrentProcess();
+            }
+        }
+
+        private bool WasProcessRemoved(int previousProcessCount, bool previousEnumeratorStatus)
+        {
+            return (!previousEnumeratorStatus && this.HasEnumeratorFinished) ||
+                    previousProcessCount > this.runningProcesses.Count;
+        }
+
+        private int ModifyIndexOnProcessRemoval(int index)
+        {
+            index--;
+
+            if (index < 0)
+            {
+                index += this.GetTotalProcessCountIncludingCurrentProcess();
+            }
+
+            return index;
+        }
+
+        private int GetTotalProcessCountIncludingCurrentProcess()
+        {
+            return this.runningProcesses.Count + (this.HasEnumeratorFinished ? 0 : 1);
         }
     }
 }

@@ -37,6 +37,7 @@
   <ItemGroup>
     <Compile Include="Data\Action.cs" />
     <Compile Include="Data\ActionInfo.cs" />
+    <Compile Include="Effects\ForkEffect.cs" />
     <Compile Include="Effects\ThreadCallEffect.cs" />
     <Compile Include="Effects\TakeEffect.cs" />
     <Compile Include="Effects\TryEffect.cs" />

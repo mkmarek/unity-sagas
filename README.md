@@ -5,7 +5,7 @@ Port of https://github.com/redux-saga/redux-saga to C# for Unity3d coroutines. T
 
 ### Put
 
-Allows to invoke SagaAction that can be (eventually) received by multiple other sagas
+Allows to invoke SagaAction that can be received by multiple other sagas
 
 ```csharp
 private IEnumerator RootSaga()
@@ -151,4 +151,37 @@ private void Saga_OnActionEvent(SagaAction data)
   // "INVOKED_ACTION: FINALLY"
 }
 
+```
+
+### Fork
+
+Forks saga into a separate "subprocess" allowing to run multiple sagas simultaneously.
+
+```csharp
+private IEnumerator SagaWithTake()
+{
+  var action = new Ref<SagaAction>();
+  yield return Do.Take("TEST", action);
+
+  yield return Do.Put(new SagaAction<int>("RESULT", action.Value.GetPayload<int>()));
+}
+
+private IEnumerator SagaWithPut()
+{
+  yield return Do.Put(new SagaAction<int>("TEST", 123));
+}
+
+private IEnumerator RootSaga()
+{
+  yield return Do.Fork(SagaWithTake());
+
+  yield return Do.Fork(SagaWithPut());
+}
+
+void Start ()
+{
+  var saga = new Saga();
+  
+  this.StartCoroutine(saga.Run(this.RootSaga()));
+}
 ```

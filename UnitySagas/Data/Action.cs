@@ -1,6 +1,6 @@
 ﻿namespace UnitySagas.Data
 {
-    public abstract class SagaAction
+    public class SagaAction
     {
         public SagaAction(string type)
         {
@@ -9,7 +9,10 @@
 
         public string Type { get; private set; }
 
-        public abstract T GetPayload<T>();
+        public virtual T GetPayload<T>()
+        {
+            return default(T);
+        }
     }
 
     public class SagaAction<TPayload> : SagaAction

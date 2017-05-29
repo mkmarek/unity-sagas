@@ -8,6 +8,7 @@
     public class TakeEffect : IEffect
     {
         private string action;
+        private bool resolved = false;
         private Ref<SagaAction> actionRef;
 
         public TakeEffect(string action, Ref<SagaAction> actionRef)
@@ -16,24 +17,32 @@
             this.actionRef = actionRef;
         }
 
-        ActionInfo IEffect.Resolve(SagaProcess saga)
+        ActionInfo IEffect.Resolve(SagaProcess process)
         {
-            return new ActionInfo(ActionInfoType.SubProcess, this.Resolve(saga));
+            process.Saga.OnActionEvent += OnAction;
+
+            return new ActionInfo(ActionInfoType.SubProcess, this.Resolve(process));
         }
 
         private void OnAction(SagaAction action)
         {
-            this.actionRef.Value = action;
+            if (this.actionRef != null)
+            {
+                this.actionRef.Value = action;
+            }
+
+            resolved = true;
         }
 
         private IEnumerator Resolve(SagaProcess process)
         {
-            process.Saga.OnActionEvent += OnAction;
-
-            while (this.actionRef.Value == null)
+ 
+            while (!resolved)
             {
                 yield return new ActionInfo(ActionInfoType.Effect, this);
             }
+
+            yield return new ActionInfo(ActionInfoType.Effect, this);
 
             process.Saga.OnActionEvent -= OnAction;
         }

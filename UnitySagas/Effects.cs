@@ -3,6 +3,7 @@
     using Data;
     using Effects;
     using System.Collections;
+    using System;
 
     public static class Do
     {
@@ -18,9 +19,9 @@
             return new CallEffect<TReturnData>(target, returnValue, args);
         }
 
-        public static PutEffect<TData> Put<TData>(SagaAction<TData> data)
+        public static PutEffect Put(SagaAction data)
         {
-            return new PutEffect<TData>(data);
+            return new PutEffect(data);
         }
 
         public static TakeEffect Take(string action, Ref<SagaAction> actionRef)
@@ -28,10 +29,20 @@
             return new TakeEffect(action, actionRef);
         }
 
+        public static TakeEffect Take(string action)
+        {
+            return new TakeEffect(action, null);
+        }
+
         public static CallEffect<TReturnData> ThreadCall<TReturnData>(
             CallEffect<TReturnData>.CallTarget target, Ref<TReturnData> returnValue)
         {
             return new ThreadCallEffect<TReturnData>(target, returnValue, new object[] { });
+        }
+
+        public static ForkEffect Fork(IEnumerator enumerator)
+        {
+            return new ForkEffect(enumerator);
         }
 
         public static CallEffect<TReturnData> ThreadCall<TReturnData>(
